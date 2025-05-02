@@ -14,6 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import com.arambyeol.domain.MealType;
+import java.util.Comparator;
 
 @Service
 @RequiredArgsConstructor
@@ -25,24 +27,35 @@ public class PlanService {
         String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         List<Plan> plans = planRepository.findAllFuturePlansWithMenuAndReviews(today);
 
+        // 날짜별로 그룹화하기 전에 planId로 정렬
+        plans.sort(Comparator.comparing(Plan::getPlanId));
+
         // 날짜별로 그룹화
         Map<String, List<Plan>> plansByDate = plans.stream()
                 .collect(Collectors.groupingBy(Plan::getDate));
 
         // 각 날짜별 식단 정보 생성
         return plansByDate.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey()) // 날짜순으로 정렬
                 .map(entry -> createPlanResponseDto(entry.getKey(), entry.getValue()))
                 .collect(Collectors.toList());
     }
 
     private PlanResponseDto createPlanResponseDto(String date, List<Plan> plans) {
-        List<DailyMenuDto> dailyMenus = plans.stream()
+        // 먼저 plans를 planId로 정렬
+        plans.sort(Comparator.comparing(Plan::getPlanId));
+
+        // MealType별로 메뉴 그룹화 (이미 정렬된 plans를 사용하므로 결과도 정렬됨)
+        Map<MealType, List<DailyMenuDto>> menusByMealType = plans.stream()
                 .map(this::createDailyMenuDto)
-                .collect(Collectors.toList());
+                .collect(Collectors.groupingBy(
+                    DailyMenuDto::getMealType,
+                    Collectors.toList()
+                ));
 
         return PlanResponseDto.builder()
                 .date(date)
-                .menus(dailyMenus)
+                .menusByMealType(menusByMealType)
                 .build();
     }
 
@@ -55,6 +68,7 @@ public class PlanService {
         return DailyMenuDto.builder()
                 .menuId(plan.getMenu().getMenuId())
                 .menuName(plan.getMenu().getMenu())
+                .mealType(plan.getMealType())
                 .course(plan.getCourse())
                 .imgPath(plan.getMenu().getImgPath())
                 .averageScore(averageScore)

@@ -18,6 +18,10 @@ public class Plan {
     @JoinColumn(name = "menu_id", nullable = false)
     private Menu menu;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "meal_type", nullable = false)
+    private MealType mealType;
+
     @Column(nullable = false)
     private String course;
 
